@@ -1,0 +1,33 @@
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+*.egg
+*.log
+logs/
+
+# Virtual environments
+.env
+.venv/
+venv/
+
+# Packaging and build artifacts
+build/
+dist/
+pip-wheel-metadata/
+
+# IDE settings
+.idea/
+.vscode/
+*.code-workspace
+
+# Reports and generated datasets
+report_*.html
+*.jsonl
+*.parquet
+*.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+
