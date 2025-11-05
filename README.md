@@ -1,6 +1,6 @@
 # Clean Simple Wikipedia for Semantic Parsing
 
-Extracts and cleans Simple Wikipedia sentences, outputting **one clean sentence per record** ready for semantic parsing.
+A modular pipeline that extracts and cleans Simple Wikipedia sentences, outputting **one clean sentence per record** ready for semantic parsing.
 
 ## Quick Start
 
@@ -22,6 +22,35 @@ python generate_report.py final
 # Run on full dataset (~770k articles → ~2-5M sentences)
 python clean_simple_wiki.py --stage heuristics
 python clean_simple_wiki.py --stage finalize
+```
+
+## Architecture
+
+The pipeline uses a modular architecture with clear separation of concerns:
+
+```
+src/
+├── config.py                      # Configuration constants
+├── cli.py                         # Command-line interface
+├── text_processing/               # Text processing utilities
+│   ├── heuristics.py             # Wiki markup cleaning, sentence extraction
+│   └── validation.py             # Sentence validation logic
+├── models/                        # Machine learning models
+│   ├── classifier.py             # ML classifier functionality
+│   └── llm_processor.py          # OpenAI LLM integration
+├── batch_processing/              # Batch processing for OpenAI API
+│   ├── batch_manager.py          # Batch preparation, submission, collection
+│   └── batch_utils.py            # Batch-specific utilities
+├── stages/                        # Processing stages
+│   ├── heuristics_stage.py       # Stage 1: Heuristic processing
+│   ├── classifier_stage.py       # Stage 2: ML classification
+│   ├── llm_stage.py              # Stage 3: LLM processing
+│   ├── finalize_stage.py         # Stage 4: Output generation
+│   └── analysis.py               # Analysis utilities
+└── utils/                         # Utility functions
+    ├── logging.py                # Logging utilities
+    ├── io_utils.py               # File I/O operations
+    └── data_utils.py             # Data manipulation helpers
 ```
 
 ## 📋 Step-by-Step Processing Guide
@@ -78,24 +107,25 @@ python spot_check.py heuristics
 
 **What to look for:**
 - Are rejection reasons correct? (too short, not sentence-like, etc.)
-- Are valid sentences being rejected? → Lower thresholds
-- Are invalid sentences passing? → Raise thresholds
+- Are valid sentences being rejected? → Adjust validation rules
+- Are invalid sentences passing? → Tighten validation rules
 - Target rejection rate: 5-15%
 
 ---
 
-### Step 3: Adjust Thresholds (If Needed)
+### Step 3: Adjust Validation Rules (If Needed)
 
-If filtering is too aggressive or lenient, edit `clean_simple_wiki.py`:
+If filtering is too aggressive or lenient, edit the validation module:
 
 ```python
-# Line 100: Minimum characters (default: 15)
+# src/text_processing/validation.py
+# Minimum characters (default: 15)
 if len(s) < 15:  # Lower to 10 for more recall
 
-# Line 112: Minimum words (default: 3)  
+# Minimum words (default: 3)  
 if len(s.split()) < 3:  # Lower to 2 for more recall
 
-# Line 115: Punctuation requirement (default: 8 words)
+# Punctuation requirement (default: 8 words)
 if len(s.split()) < 8 and not s.rstrip().endswith(('.', '!', '?')):
     # Raise 8 → 10 to be stricter
 ```
@@ -130,7 +160,7 @@ python view_rejections.py llm
 
 Uses GPT-4o-mini to judge borderline sentences. Shows what was kept/dropped and why.
 
-**If LLM processing fails:** The script now preserves failed batches in checkpoints and creates detailed error logs. Use:
+**If LLM processing fails:** The pipeline preserves failed batches in checkpoints and creates detailed error logs. Use:
 ```bash
 python clean_simple_wiki.py --stage analyze-failures  # Analyze what failed
 ```
@@ -436,12 +466,20 @@ python clean_simple_wiki.py --stage heuristics \
 
 ```
 clean_simple_wiki/
-├── clean_simple_wiki.py          # Main pipeline
+├── clean_simple_wiki.py          # Main pipeline entry point
+├── src/                           # Modular pipeline components
+│   ├── config.py                 # Configuration constants
+│   ├── cli.py                    # Command-line interface
+│   ├── text_processing/          # Text processing utilities
+│   ├── models/                   # ML models (classifier, LLM)
+│   ├── batch_processing/         # OpenAI batch processing
+│   ├── stages/                   # Processing stages
+│   └── utils/                    # Utility functions
 ├── generate_report.py            # HTML report generator
-├── view_rejections.py            # CLI rejection viewer (NEW)
+├── view_rejections.py            # CLI rejection viewer
 ├── spot_check.py                 # Terminal review tool
 ├── requirements.txt              # Dependencies
-├── README.md                     # This file (quick reference)
+├── README.md                     # This file
 ├── TESTING_GUIDE.md             # Detailed testing instructions
 │
 ├── simple_wiki_clean_heuristics.parquet  # Stage outputs
@@ -494,7 +532,7 @@ python view_rejections.py heuristics
 # 2. View rejection breakdown
 python generate_report.py heuristics  # See charts
 
-# 3. Adjust thresholds in clean_simple_wiki.py (see step 3 above)
+# 3. Adjust validation rules in src/text_processing/validation.py
 
 # 4. Rerun and review
 python clean_simple_wiki.py --stage heuristics --test-limit 100
@@ -567,7 +605,7 @@ python clean_simple_wiki.py --stage all --use_classifier --use_llm --test-limit 
 
 1. **Test**: Run on sample data (100 docs)
 2. **Review**: Check `report_heuristics.html` and use `view_rejections.py`
-3. **Adjust**: Tune thresholds if needed (typically not necessary)
+3. **Adjust**: Tune validation rules if needed (typically not necessary)
 4. **Finalize**: Create clean output with `--stage finalize`
 5. **Scale**: Run on full dataset (remove `--test-limit`)
 6. **Use**: Feed `simple_wiki_clean.jsonl` to your semantic parser
